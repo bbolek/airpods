@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">AirPods Manager</string>
+    <string name="widget_label">AirPods Battery</string>
+    <string name="notification_monitoring_title">AirPods Monitor</string>
+    <string name="notification_monitoring_text">Monitoring battery levels…</string>
+    <string name="battery_left">Left</string>
+    <string name="battery_right">Right</string>
+    <string name="battery_case">Case</string>
+    <string name="battery_unknown">--</string>
+    <string name="low_battery_alert_title">%1$s Battery Low</string>
+    <string name="in_ear_left">Left In-Ear</string>
+    <string name="in_ear_right">Right In-Ear</string>
+    <string name="case_open">Case Open</string>
+    <string name="scanning">Scanning for AirPods…</string>
+    <string name="no_device_found">No AirPods Found</string>
+    <string name="settings">Settings</string>
+    <string name="devices">Devices</string>
+    <string name="back">Back</string>
+    <string name="connect">Connect</string>
+    <string name="disconnect">Disconnect</string>
+</resources>
