@@ -3,9 +3,12 @@ package com.airpods.manager.bluetooth
 import android.Manifest
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
-import android.bluetooth.BluetoothProfile
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.os.Build
 import androidx.core.content.ContextCompat
 import com.airpods.manager.domain.model.ConnectionState
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -25,6 +28,32 @@ class BluetoothController @Inject constructor(
 ) {
     private val _connectionStates = MutableStateFlow<Map<String, ConnectionState>>(emptyMap())
     val connectionStates: StateFlow<Map<String, ConnectionState>> = _connectionStates
+
+    private val connectionReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            val device: BluetoothDevice? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
+            }
+            device ?: return
+            when (intent.action) {
+                BluetoothDevice.ACTION_ACL_CONNECTED ->
+                    updateState(device.address, ConnectionState.CONNECTED)
+                BluetoothDevice.ACTION_ACL_DISCONNECTED ->
+                    updateState(device.address, ConnectionState.DISCONNECTED)
+            }
+        }
+    }
+
+    init {
+        val filter = IntentFilter().apply {
+            addAction(BluetoothDevice.ACTION_ACL_CONNECTED)
+            addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED)
+        }
+        context.registerReceiver(connectionReceiver, filter)
+    }
 
     fun connect(deviceAddress: String): Result<Unit> {
         if (!hasConnectPermission()) return Result.failure(SecurityException("BLUETOOTH_CONNECT not granted"))
@@ -48,17 +77,19 @@ class BluetoothController @Inject constructor(
     fun getConnectedDevices(): List<BluetoothDevice> {
         if (!hasConnectPermission()) return emptyList()
         return try {
-            bluetoothAdapter.getProfileConnectionState(BluetoothProfile.A2DP)
-            // Get paired devices that are currently connected for audio
+            val connectedAddresses = _connectionStates.value
+                .filter { it.value == ConnectionState.CONNECTED }
+                .keys
             bluetoothAdapter.bondedDevices
-                ?.filter { device ->
-                    bluetoothAdapter.getProfileConnectionState(BluetoothProfile.A2DP) ==
-                            BluetoothProfile.STATE_CONNECTED
-                } ?: emptyList()
+                ?.filter { it.address in connectedAddresses }
+                ?: emptyList()
         } catch (_: Exception) {
             emptyList()
         }
     }
+
+    fun isDeviceConnected(address: String): Boolean =
+        _connectionStates.value[address] == ConnectionState.CONNECTED
 
     fun getPairedAirPods(): List<BluetoothDevice> {
         if (!hasConnectPermission()) return emptyList()

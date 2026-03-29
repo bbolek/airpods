@@ -3,6 +3,7 @@ package com.airpods.manager.service
 import android.app.Service
 import android.content.Intent
 import android.os.IBinder
+import com.airpods.manager.bluetooth.BluetoothController
 import com.airpods.manager.data.preferences.PreferencesDataStore
 import com.airpods.manager.data.repository.DeviceRepository
 import com.airpods.manager.domain.model.AirPodsDevice
@@ -25,6 +26,7 @@ class AirPodsMonitorService : Service() {
     @Inject lateinit var deviceRepository: DeviceRepository
     @Inject lateinit var batteryNotificationManager: BatteryNotificationManager
     @Inject lateinit var preferencesDataStore: PreferencesDataStore
+    @Inject lateinit var bluetoothController: BluetoothController
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var scanJob: Job? = null
@@ -59,6 +61,8 @@ class AirPodsMonitorService : Service() {
 
     private fun checkBatteryAlerts(device: AirPodsDevice) {
         serviceScope.launch {
+            if (!bluetoothController.isDeviceConnected(device.address)) return@launch
+
             val prefs = preferencesDataStore.userPreferences.first()
             if (!prefs.lowBatteryNotificationsEnabled) return@launch
 
