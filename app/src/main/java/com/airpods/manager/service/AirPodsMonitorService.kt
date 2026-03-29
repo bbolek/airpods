@@ -3,10 +3,9 @@ package com.airpods.manager.service
 import android.app.Service
 import android.content.Intent
 import android.os.IBinder
+import com.airpods.manager.data.preferences.PreferencesDataStore
 import com.airpods.manager.data.repository.DeviceRepository
 import com.airpods.manager.domain.model.AirPodsDevice
-import com.airpods.manager.domain.model.BatteryState
-import com.airpods.manager.domain.model.ConnectionState
 import com.airpods.manager.domain.usecase.ObserveNearbyDevicesUseCase
 import com.airpods.manager.notification.BatteryNotificationManager
 import dagger.hilt.android.AndroidEntryPoint
@@ -15,6 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -24,6 +24,7 @@ class AirPodsMonitorService : Service() {
     @Inject lateinit var observeNearbyDevices: ObserveNearbyDevicesUseCase
     @Inject lateinit var deviceRepository: DeviceRepository
     @Inject lateinit var batteryNotificationManager: BatteryNotificationManager
+    @Inject lateinit var preferencesDataStore: PreferencesDataStore
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var scanJob: Job? = null
@@ -57,23 +58,23 @@ class AirPodsMonitorService : Service() {
     }
 
     private fun checkBatteryAlerts(device: AirPodsDevice) {
-        val alertKey = device.address
-        if (alertedDevices.contains(alertKey)) return
+        serviceScope.launch {
+            val prefs = preferencesDataStore.userPreferences.first()
+            if (!prefs.lowBatteryNotificationsEnabled) return@launch
 
-        val battery = device.battery
-        val threshold = 20 // Default, should come from preferences in production
+            val alertKey = device.address
+            val battery = device.battery
+            val threshold = prefs.lowBatteryThreshold
 
-        if (battery.left in 1 until threshold) {
-            batteryNotificationManager.showLowBatteryAlert(device, "Left earbud", battery.left)
-            alertedDevices.add("$alertKey-left")
-        }
-        if (battery.right in 1 until threshold) {
-            batteryNotificationManager.showLowBatteryAlert(device, "Right earbud", battery.right)
-            alertedDevices.add("$alertKey-right")
-        }
-        if (battery.case in 1 until threshold) {
-            batteryNotificationManager.showLowBatteryAlert(device, "Case", battery.case)
-            alertedDevices.add("$alertKey-case")
+            if (battery.left in 1 until threshold && alertedDevices.add("$alertKey-left")) {
+                batteryNotificationManager.showLowBatteryAlert(device, "Left earbud", battery.left)
+            }
+            if (battery.right in 1 until threshold && alertedDevices.add("$alertKey-right")) {
+                batteryNotificationManager.showLowBatteryAlert(device, "Right earbud", battery.right)
+            }
+            if (battery.case in 1 until threshold && alertedDevices.add("$alertKey-case")) {
+                batteryNotificationManager.showLowBatteryAlert(device, "Case", battery.case)
+            }
         }
     }
 
