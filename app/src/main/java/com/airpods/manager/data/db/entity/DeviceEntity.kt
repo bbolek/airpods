@@ -9,5 +9,6 @@ data class DeviceEntity(
     val name: String,
     val modelId: Int,
     val lastSeen: Long,
-    val isFavorite: Boolean = false
+    val isFavorite: Boolean = false,
+    val customName: String? = null
 )
