@@ -6,22 +6,20 @@ import com.airpods.manager.ble.model.AirPodsModel
 /**
  * Parses Apple BLE manufacturer-specific advertisement data from AirPods.
  *
- * The advertisement data format (type 0x07, Apple company ID 0x004C):
- *   Byte 0-1 : Apple company ID (0x4C 0x00 in little-endian)
- *   Byte 2   : Type = 0x07 (AirPods/Beats)
- *   Byte 3   : Data length
- *   Byte 4-5 : Device model ID (little-endian)
- *   Byte 6   : Status flags (flip bit, in-case, lid open, charging)
- *   Byte 7   : Battery nibbles (upper=pod1, lower=pod2)
- *   Byte 8   : Battery/charging (upper=case, lower=charging flags)
- *   Byte 9   : Lid open counter / extra flags
+ * Android's ScanRecord.getManufacturerSpecificData(0x004C) strips the company ID bytes,
+ * so the returned byte array starts directly with the type byte:
+ *   Byte 0   : Type = 0x07 (AirPods/Beats)
+ *   Byte 1   : Data length
+ *   Byte 2-3 : Device model ID (little-endian)
+ *   Byte 4   : Status flags (flip bit, in-case, lid open, charging)
+ *   Byte 5   : Battery nibbles (upper=pod1, lower=pod2)
+ *   Byte 6   : Battery/charging (upper=case, lower=charging flags)
+ *   Byte 7   : Lid open counter / extra flags
  */
 object AirPodsAdvertisementParser {
 
-    private const val APPLE_COMPANY_ID_LSB = 0x4C.toByte()
-    private const val APPLE_COMPANY_ID_MSB = 0x00.toByte()
     private const val AIRPODS_TYPE = 0x07.toByte()
-    private const val MIN_DATA_LENGTH = 10
+    private const val MIN_DATA_LENGTH = 8
 
     // Status byte (index 6) bit masks
     private const val STATUS_FLIP = 0x20        // Which pod is "right"
@@ -42,17 +40,15 @@ object AirPodsAdvertisementParser {
         deviceName: String?
     ): AirPodsAdvertisement? {
         if (manufacturerData.size < MIN_DATA_LENGTH) return null
-        if (manufacturerData[0] != APPLE_COMPANY_ID_LSB) return null
-        if (manufacturerData[1] != APPLE_COMPANY_ID_MSB) return null
-        if (manufacturerData[2] != AIRPODS_TYPE) return null
+        if (manufacturerData[0] != AIRPODS_TYPE) return null
 
-        val modelId = (manufacturerData[5].toInt() and 0xFF shl 8) or
-                (manufacturerData[4].toInt() and 0xFF)
+        val modelId = (manufacturerData[3].toInt() and 0xFF shl 8) or
+                (manufacturerData[2].toInt() and 0xFF)
         val model = AirPodsModel.fromModelId(modelId)
 
-        val statusByte = manufacturerData[6].toInt() and 0xFF
-        val batteryByte1 = manufacturerData[7].toInt() and 0xFF
-        val batteryByte2 = manufacturerData[8].toInt() and 0xFF
+        val statusByte = manufacturerData[4].toInt() and 0xFF
+        val batteryByte1 = manufacturerData[5].toInt() and 0xFF
+        val batteryByte2 = manufacturerData[6].toInt() and 0xFF
 
         // Flip bit determines which nibble is left vs right
         val isFlipped = (statusByte and STATUS_FLIP) != 0
@@ -88,9 +84,9 @@ object AirPodsAdvertisementParser {
         val leftInEar = if (!isFlipped) leftInEarRaw else rightInEarRaw
         val rightInEar = if (!isFlipped) rightInEarRaw else leftInEarRaw
 
-        // Lid state is in byte 9 upper nibble
-        val lidOpen = if (manufacturerData.size > 9) {
-            val lidByte = manufacturerData[9].toInt() and 0xFF
+        // Lid state is in byte 7 upper nibble
+        val lidOpen = if (manufacturerData.size > 7) {
+            val lidByte = manufacturerData[7].toInt() and 0xFF
             (lidByte ushr 4) != 0
         } else false
 
@@ -120,8 +116,6 @@ object AirPodsAdvertisementParser {
 
     fun isAirPodsAdvertisement(manufacturerData: ByteArray): Boolean {
         if (manufacturerData.size < MIN_DATA_LENGTH) return false
-        if (manufacturerData[0] != APPLE_COMPANY_ID_LSB) return false
-        if (manufacturerData[1] != APPLE_COMPANY_ID_MSB) return false
-        return manufacturerData[2] == AIRPODS_TYPE
+        return manufacturerData[0] == AIRPODS_TYPE
     }
 }
