@@ -12,6 +12,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -27,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -48,6 +50,29 @@ fun DeviceDetailScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val device = uiState.device
+
+    LaunchedEffect(uiState.deviceDeleted) {
+        if (uiState.deviceDeleted) onBack()
+    }
+
+    if (uiState.showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissDeleteConfirm,
+            title = { Text("Remove Device") },
+            text = { Text("Remove ${device?.name ?: "this device"} from your known devices?") },
+            confirmButton = {
+                Button(
+                    onClick = viewModel::confirmDelete,
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
+                ) { Text("Remove") }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::dismissDeleteConfirm) { Text("Cancel") }
+            }
+        )
+    }
 
     if (uiState.showRenameDialog) {
         AlertDialog(
@@ -83,6 +108,13 @@ fun DeviceDetailScreen(
                     if (device != null) {
                         IconButton(onClick = viewModel::openRenameDialog) {
                             Icon(Icons.Default.Edit, contentDescription = "Rename device")
+                        }
+                        IconButton(onClick = viewModel::openDeleteConfirm) {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = "Remove device",
+                                tint = MaterialTheme.colorScheme.error
+                            )
                         }
                     }
                 }

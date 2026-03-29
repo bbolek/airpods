@@ -23,7 +23,9 @@ data class DeviceDetailUiState(
     val batteryHistory: List<BatteryHistoryEntity> = emptyList(),
     val isLoading: Boolean = true,
     val showRenameDialog: Boolean = false,
-    val renameInput: String = ""
+    val renameInput: String = "",
+    val showDeleteConfirm: Boolean = false,
+    val deviceDeleted: Boolean = false
 )
 
 @HiltViewModel
@@ -119,5 +121,20 @@ class DeviceDetailViewModel @Inject constructor(
 
     fun dismissRenameDialog() {
         _uiState.value = _uiState.value.copy(showRenameDialog = false)
+    }
+
+    fun openDeleteConfirm() {
+        _uiState.value = _uiState.value.copy(showDeleteConfirm = true)
+    }
+
+    fun dismissDeleteConfirm() {
+        _uiState.value = _uiState.value.copy(showDeleteConfirm = false)
+    }
+
+    fun confirmDelete() {
+        viewModelScope.launch {
+            deviceRepository.deleteDevice(address)
+            _uiState.value = _uiState.value.copy(showDeleteConfirm = false, deviceDeleted = true)
+        }
     }
 }
