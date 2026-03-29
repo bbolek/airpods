@@ -27,4 +27,7 @@ interface DeviceDao {
 
     @Query("DELETE FROM devices WHERE lastSeen < :before")
     suspend fun deleteOlderThan(before: Long)
+
+    @Query("UPDATE devices SET customName = :customName WHERE address = :address")
+    suspend fun updateCustomName(address: String, customName: String?)
 }

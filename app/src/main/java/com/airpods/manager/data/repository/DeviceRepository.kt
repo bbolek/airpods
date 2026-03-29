@@ -29,11 +29,14 @@ class DeviceRepository @Inject constructor(
         }
 
     suspend fun saveDevice(advertisement: AirPodsAdvertisement) {
+        val existing = deviceDao.getByAddress(advertisement.deviceAddress)
         val entity = DeviceEntity(
             address = advertisement.deviceAddress,
             name = advertisement.deviceName ?: advertisement.model.displayName,
             modelId = advertisement.model.modelId,
-            lastSeen = System.currentTimeMillis()
+            lastSeen = System.currentTimeMillis(),
+            isFavorite = existing?.isFavorite ?: false,
+            customName = existing?.customName
         )
         deviceDao.upsert(entity)
 
@@ -55,9 +58,13 @@ class DeviceRepository @Inject constructor(
         deviceDao.delete(address)
     }
 
+    suspend fun renameDevice(address: String, customName: String) {
+        deviceDao.updateCustomName(address, customName.takeIf { it.isNotBlank() })
+    }
+
     private fun DeviceEntity.toDomain() = AirPodsDevice(
         address = address,
-        name = name,
+        name = customName ?: name,
         model = AirPodsModel.fromModelId(modelId),
         battery = BatteryState.UNKNOWN,
         connectionState = ConnectionState.DISCONNECTED,

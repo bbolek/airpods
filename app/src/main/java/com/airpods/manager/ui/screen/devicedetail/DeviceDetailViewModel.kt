@@ -21,7 +21,11 @@ import javax.inject.Inject
 data class DeviceDetailUiState(
     val device: AirPodsDevice? = null,
     val batteryHistory: List<BatteryHistoryEntity> = emptyList(),
-    val isLoading: Boolean = true
+    val isLoading: Boolean = true,
+    val showRenameDialog: Boolean = false,
+    val renameInput: String = "",
+    val showDeleteConfirm: Boolean = false,
+    val deviceDeleted: Boolean = false
 )
 
 @HiltViewModel
@@ -91,6 +95,46 @@ class DeviceDetailViewModel @Inject constructor(
     fun disconnect() {
         viewModelScope.launch {
             disconnectDevice(address)
+        }
+    }
+
+    fun openRenameDialog() {
+        _uiState.value = _uiState.value.copy(
+            showRenameDialog = true,
+            renameInput = _uiState.value.device?.name ?: ""
+        )
+    }
+
+    fun onRenameInputChange(input: String) {
+        _uiState.value = _uiState.value.copy(renameInput = input)
+    }
+
+    fun confirmRename() {
+        val name = _uiState.value.renameInput.trim()
+        if (name.isNotEmpty()) {
+            viewModelScope.launch {
+                deviceRepository.renameDevice(address, name)
+            }
+        }
+        _uiState.value = _uiState.value.copy(showRenameDialog = false)
+    }
+
+    fun dismissRenameDialog() {
+        _uiState.value = _uiState.value.copy(showRenameDialog = false)
+    }
+
+    fun openDeleteConfirm() {
+        _uiState.value = _uiState.value.copy(showDeleteConfirm = true)
+    }
+
+    fun dismissDeleteConfirm() {
+        _uiState.value = _uiState.value.copy(showDeleteConfirm = false)
+    }
+
+    fun confirmDelete() {
+        viewModelScope.launch {
+            deviceRepository.deleteDevice(address)
+            _uiState.value = _uiState.value.copy(showDeleteConfirm = false, deviceDeleted = true)
         }
     }
 }
